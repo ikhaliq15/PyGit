@@ -16,6 +16,7 @@ class Command:
 					"log": lambda: LogCommand,
 					"find": lambda: FindCommand,
 					"status": lambda: StatusCommand,
+					"checkout": lambda: CheckoutSpliiterCommand,
 				}
 
 	def get_command(command):
@@ -146,6 +147,7 @@ class FindCommand(Command):
 		search_query = args[0]
 
 		current_commit = file_utils.read_object(file_utils.read_head_file())
+
 		found = False
 		while current_commit is not Commit.empty:
 			if current_commit.message == search_query:
@@ -182,12 +184,51 @@ class StatusCommand(Command):
 				print(file, "(deleted)")
 			elif file in staged and hash_file(file) != hash_file(os.path.join(file_utils.get_staging_dir(), file)):
 				print(file, "(modified)")
-			elif file not in staged and hash_file(file) != current_commit.blobs[file]:
+			elif file not in staged and file not in removed and hash_file(file) != current_commit.blobs[file]:
 				print(file, "(modified)")
 		print("\n=== Untracked Files ===")
 		for file in os.listdir(os.getcwd()):
 			if not os.path.isdir(file) and file not in staged and file not in current_commit.blobs:
 				print(file)
+
+class CheckoutSpliiterCommand(Command):
+	arg_count = 0 # will not be handled in splitter
+
+	def run(self, args):
+		self.require_initialized()
+
+		if len(args) == 1:
+			pass
+			#CheckoutBranchCommand().run(args)
+		elif len(args) == 2 and args[0] == "--":
+			LastCommitCheckoutCommand().run(args)
+		elif len(args) == 3 and args[1] == "--":
+			AnyCommitCheckoutCommand().run(args)
+		else:
+			print(ErrorMessages.invalid_parameters)
+			sys.exit(0)
+
+class LastCommitCheckoutCommand(Command):
+	arg_count = 2
+
+	def run(self, args):
+		self.check_args_count(args)
+		self.require_initialized()
+
+		filename = args[1]
+		current_commit = file_utils.read_object(file_utils.read_head_file())
+
+		if filename not in current_commit.blobs:
+			print(ErrorMessages.checkout_no_file)
+			sys.exit(0)
+
+		file = open(filename, "w")
+		file.write(file_utils.read_object(current_commit.blobs[filename]))
+		file.close()
+
+		file_utils.unstage_file(filename)
+		file_utils.unmark_for_remove(filename)
+
 
 commands_list = [
 					"init",
@@ -198,7 +239,7 @@ commands_list = [
 					# "global-log",
 					"find",
 					"status",
-					# "checkout",
+					"checkout",
 					# "branch",
 					# "rm-branch",
 					# "reset",

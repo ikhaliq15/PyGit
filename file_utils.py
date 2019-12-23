@@ -106,6 +106,12 @@ def mark_for_remove(file_name):
 		objects_to_remove.append(file_name)
 	pickle.dump(objects_to_remove, open(get_remove_file(), 'wb'))
 
+def unmark_for_remove(file_name):
+	objects_to_remove = pickle.load(open(get_remove_file(), 'rb'))
+	if file_name in objects_to_remove:
+		objects_to_remove.remove(file_name)
+	pickle.dump(objects_to_remove, open(get_remove_file(), 'wb'))
+
 def get_marked_for_remove():
 	return pickle.load(open(get_remove_file(), 'rb'))
 
