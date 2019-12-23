@@ -15,3 +15,6 @@ class ErrorMessages:
 	branch_already_exists = "A branch with that name already exists."
 	branch_not_found = "No such branch exists."
 	already_in_branch = "No need to checkout the current branch."
+	checkout_warning = "There is an untracked file in the way; delete it or add it first."
+	removing_current_branch = "Cannot remove the current branch."
+	branch_not_found_rm = "A branch with that name does not exist."

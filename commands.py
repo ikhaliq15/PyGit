@@ -18,6 +18,8 @@ class Command:
 					"status": lambda: StatusCommand,
 					"checkout": lambda: CheckoutSpliiterCommand,
 					"branch": lambda: BranchCommand,
+					"rm-branch": lambda: RemoveBranchCommand,
+					"reset": lambda: ResetCommand,
 				}
 
 	def get_command(command):
@@ -169,10 +171,16 @@ class StatusCommand(Command):
 
 		staged = os.listdir(file_utils.get_staging_dir())
 		removed = file_utils.get_marked_for_remove()
+		current_branch_name = file_utils.get_current_branch()
+		branches = file_utils.get_branch_names()
+		sorted_branch_names = branches.sort()
 		current_commit = file_utils.read_object(file_utils.read_head_file())
 
 		print("=== Branches ===")
-		print("*master")
+		for branch in branches:
+			if branch == current_branch_name:
+				print("*", end="")
+			print(branch)
 		print("\n=== Staged Files ===")
 		for file in staged:
 			print(file)
@@ -193,7 +201,7 @@ class StatusCommand(Command):
 				print(file)
 
 class CheckoutSpliiterCommand(Command):
-	arg_count = 0 # will not be handled in splitter
+	arg_count = 0 # will be handled in splitter
 
 	def run(self, args):
 		self.require_initialized()
@@ -259,26 +267,32 @@ class CheckoutBranchCommand(Command):
 			sys.exit(0)
 
 		old_commit = file_utils.read_object(file_utils.read_head_file())
+		new_commit = file_utils.read_object(file_utils.get_head_for_branch(branch_name))
 
-		current_branch_namne = file_utils.get_current_branch()
+		current_branch_name = file_utils.get_current_branch()
 
-		file_utils.write_head(branch_name)
-		current_commit = file_utils.read_object(file_utils.read_head_file())
-
-		if branch_name == current_branch_namne:
+		if branch_name == current_branch_name:
 			print(ErrorMessages.already_in_branch)
 			sys.exit(0)
 
-		current_commit = file_utils.read_object(file_utils.read_head_file())
-		for filename in current_commit.blobs:
+		removed = file_utils.get_marked_for_remove()
+
+		for filename in new_commit.blobs:
+			if file_utils.file_exists(filename) and not (file_utils.is_staged(filename) or filename in removed or filename in old_commit.blobs):
+				print(ErrorMessages.checkout_warning)
+				sys.exit(0)
+
+		for filename in new_commit.blobs:
 			file = open(filename, "w")
-			file.write(file_utils.read_object(current_commit.blobs[filename]))
+			file.write(file_utils.read_object(new_commit.blobs[filename]))
 			file.close()
 
 		for blob in old_commit.blobs:
-			if blob not in current_commit.blobs:
+			if blob not in new_commit.blobs:
 				if file_utils.file_exists(blob):
 					os.remove(blob)
+
+		file_utils.write_head(branch_name)
 
 		file_utils.clear_stage_dir()
 		file_utils.clear_marked_for_remove()
@@ -300,6 +314,59 @@ class BranchCommand(Command):
 		current_commit = file_utils.read_head_file()
 		file_utils.write_branch(branch_name, current_commit)
 
+class RemoveBranchCommand(Command):
+	arg_count = 1
+
+	def run(self, args):
+		self.check_args_count(args)
+		self.require_initialized()
+
+		branch_name = args[0]
+		current_branch_namne = file_utils.get_current_branch()
+
+		if branch_name == current_branch_namne:
+			print(ErrorMessages.removing_current_branch)
+			sys.exit(0)
+
+		if not file_utils.exists_branch(branch_name):
+			print(ErrorMessages.branch_not_found_rm)
+			sys.exit(0)
+			
+		file_utils.remove_branch(branch_name)
+
+class ResetCommand(Command):
+	arg_count = 1
+
+	def run(self, args):
+		self.check_args_count(args)
+		self.require_initialized()
+
+		commit_id = args[0]
+		old_commit = file_utils.read_object(file_utils.read_head_file())
+		new_commit = file_utils.read_object(file_utils.find_commit(commit_id))
+
+		removed = file_utils.get_marked_for_remove()
+
+		for filename in new_commit.blobs:
+			if file_utils.file_exists(filename) and not (file_utils.is_staged(filename) or filename in removed or filename in old_commit.blobs):
+				print(ErrorMessages.checkout_warning)
+				sys.exit(0)
+
+		for filename in new_commit.blobs:
+			file = open(filename, "w")
+			file.write(file_utils.read_object(new_commit.blobs[filename]))
+			file.close()
+
+		for blob in old_commit.blobs:
+			if blob not in new_commit.blobs:
+				if file_utils.file_exists(blob):
+					os.remove(blob)
+
+		file_utils.add_commit_to_head(new_commit)
+		file_utils.clear_stage_dir()
+		file_utils.clear_marked_for_remove()
+
+
 commands_list = [
 					"init",
 					"add",
@@ -311,7 +378,7 @@ commands_list = [
 					"status",
 					"checkout",
 					"branch",
-					# "rm-branch",
-					# "reset",
+					"rm-branch",
+					"reset",
 					# "merge",
 				]

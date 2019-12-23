@@ -71,11 +71,23 @@ def get_current_branch():
 	head_file.close()
 	return branch
 
+def get_branch_names():
+	return os.listdir(get_heads_dir())
+
+def get_head_for_branch(branch_name):
+	branch_head = open(os.path.join(get_heads_dir(), branch_name), 'rb')
+	return pickle.load(branch_head)
+
 def read_head_file():
 	head_file = open(get_head_file(), 'rb')
 	branch = str(pickle.load(head_file))
 	branch_head_file = open(os.path.join(get_heads_dir(), branch), 'rb')
 	return str(pickle.load(branch_head_file))
+
+def remove_branch(branch_name):
+	branch_head_loc = os.path.join(get_heads_dir(), branch_name)
+	if file_exists(branch_head_loc):
+		os.remove(branch_head_loc)
 
 def find_commit(commit_id):
 	hash_id = commit_id[:2]
