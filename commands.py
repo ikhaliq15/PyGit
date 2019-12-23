@@ -149,14 +149,23 @@ class FindCommand(Command):
 
 		search_query = args[0]
 
-		current_commit = file_utils.read_object(file_utils.read_head_file())
+		searched_commits = []
+
+		branch_names = file_utils.get_branch_names()
+		branch_commit_heads = [file_utils.read_object(file_utils.get_head_for_branch(b)) for b in branch_names]
 
 		found = False
-		while current_commit is not Commit.empty:
-			if current_commit.message == search_query:
-				found = True
-				print(hash_commit(current_commit))
-			current_commit = file_utils.read_object(current_commit.parent)
+		for commit_head in branch_commit_heads:
+			current_commit = commit_head
+			while current_commit is not Commit.empty:
+				commit_hash = hash_commit(current_commit)
+				if commit_hash in searched_commits:
+					break
+				searched_commits.append(commit_hash)
+				if current_commit.message == search_query:
+					found = True
+					print(commit_hash)
+				current_commit = file_utils.read_object(current_commit.parent)
 
 		if not found:
 			print(ErrorMessages.found_no_commits)
@@ -374,7 +383,7 @@ commands_list = [
 					"rm",
 					"log",
 					# "global-log",
-					#"find",
+					"find",
 					"status",
 					"checkout",
 					"branch",
