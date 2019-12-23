@@ -14,6 +14,7 @@ class Command:
 					"commit": lambda: CommitCommand,
 					"rm": lambda: RemoveCommand,
 					"log": lambda: LogCommand,
+					"find": lambda: FindCommand,
 				}
 
 	def get_command(command):
@@ -134,6 +135,28 @@ class LogCommand(Command):
 			print("")
 			current_commit = file_utils.read_object(current_commit.parent)
 
+class FindCommand(Command):
+	arg_count = 1
+
+	def run(self, args):
+		self.check_args_count(args)
+		self.require_initialized()
+
+		search_query = args[0]
+
+		current_commit = file_utils.read_object(file_utils.read_head_file())
+		found = False
+		while current_commit is not Commit.empty:
+			if current_commit.message == search_query:
+				found = True
+				print(hash_commit(current_commit))
+			current_commit = file_utils.read_object(current_commit.parent)
+
+		if not found:
+			print(ErrorMessages.found_no_commits)
+			sys.exit(0)
+
+
 commands_list = [
 					"init",
 					"add",
@@ -141,7 +164,7 @@ commands_list = [
 					"rm",
 					"log",
 					# "global-log",
-					# "find",
+					"find",
 					# "status",
 					# "checkout",
 					# "branch",
