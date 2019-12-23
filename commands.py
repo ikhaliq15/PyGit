@@ -17,6 +17,7 @@ class Command:
 					"find": lambda: FindCommand,
 					"status": lambda: StatusCommand,
 					"checkout": lambda: CheckoutSpliiterCommand,
+					"branch": lambda: BranchCommand,
 				}
 
 	def get_command(command):
@@ -97,7 +98,7 @@ class CommitCommand(Command):
 		file_utils.clear_stage_dir()
 		file_utils.clear_marked_for_remove()
 		file_utils.write_commit(new_commit)
-		file_utils.write_head(new_commit)
+		file_utils.add_commit_to_head(new_commit)
 
 class RemoveCommand(Command):
 	arg_count = 1
@@ -245,6 +246,15 @@ class AnyCommitCheckoutCommand(Command):
 		file.write(file_utils.read_object(current_commit.blobs[filename]))
 		file.close()
 
+class BranchCommand(Command):
+	arg_count = 1
+
+	def run(self, args):
+		self.check_args_count(args)
+		self.require_initialized()
+
+		branch_name = args[0]
+
 commands_list = [
 					"init",
 					"add",
@@ -252,10 +262,10 @@ commands_list = [
 					"rm",
 					"log",
 					# "global-log",
-					"find",
+					#"find",
 					"status",
 					"checkout",
-					# "branch",
+					"branch",
 					# "rm-branch",
 					# "reset",
 					# "merge",

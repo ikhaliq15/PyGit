@@ -30,9 +30,11 @@ def initialize_git_dir():
 	create_directory(get_git_directory())
 	create_directory(get_objects_dir())
 	create_directory(get_staging_dir())
+	create_directory(get_heads_dir())
 	initial_commit = Commit("initial commit", time=get_begin_unix_time())
 	write_commit(initial_commit)
-	write_head(initial_commit)
+	write_branch("master", hash_commit(initial_commit))
+	write_head("master")
 	pickle.dump([], open(get_remove_file(), 'wb'))
 
 def write_blob(filename):
@@ -45,13 +47,25 @@ def write_blob(filename):
 def write_commit(commit):
 	write_object(hash_commit(commit), commit)
 
-def write_head(commit):
+def write_branch(branch_name, head):
+	branch_head = open(os.path.join(get_heads_dir(), branch_name), 'wb')
+	pickle.dump(head, branch_head)
+
+def add_commit_to_head(commit):
+	head_file = open(get_head_file(), 'rb')
+	branch = pickle.load(head_file)
+	branch_head_file = open(os.path.join(get_heads_dir(), branch), 'wb')
+	pickle.dump(hash_commit(commit), branch_head_file)
+
+def write_head(branch):
 	head_file = open(get_head_file(), 'wb')
-	pickle.dump(hash_commit(commit), head_file)
+	pickle.dump(branch, head_file)
 
 def read_head_file():
 	head_file = open(get_head_file(), 'rb')
-	return str(pickle.load(head_file))
+	branch = str(pickle.load(head_file))
+	branch_head_file = open(os.path.join(get_heads_dir(), branch), 'rb')
+	return str(pickle.load(branch_head_file))
 
 def find_commit(commit_id):
 	hash_id = commit_id[:2]
@@ -116,6 +130,9 @@ def get_staging_dir():
 
 def get_objects_dir():
 	return os.path.join(get_git_directory(), "objects")
+
+def get_heads_dir():
+	return os.path.join(get_git_directory(), "heads")
 
 def copy_file(current_loc, new_loc):
 	copyfile(current_loc, new_loc)
