@@ -22,7 +22,7 @@ class Commit:
 		self.blobs[filename] = blob_id
 
 	def clean_str(self):
-		return "commit: " + hash_commit(self) + "\n" + "Date: " + get_time_stamp(self.time_stamp) + "\n" + self.message + "\n" + str(self.blobs)
+		return "commit: " + hash_commit(self) + "\n" + "Date: " + get_time_stamp(self.time_stamp) + "\n" + self.message# + "\n" + str(self.blobs)
 
 	def __str__(self):
 		return "Date: " + get_time_stamp(self.time_stamp) + "\n\n\t" + self.message + "\n" + str(self.blobs)

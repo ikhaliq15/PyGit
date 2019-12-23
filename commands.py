@@ -14,6 +14,7 @@ class Command:
 					"commit": lambda: CommitCommand,
 					"rm": lambda: RemoveCommand,
 					"log": lambda: LogCommand,
+					"global-log": lambda: GlobalLogCommand,
 					"find": lambda: FindCommand,
 					"status": lambda: StatusCommand,
 					"checkout": lambda: CheckoutSpliiterCommand,
@@ -139,6 +140,31 @@ class LogCommand(Command):
 			print(current_commit.clean_str(), end="\n")
 			print("")
 			current_commit = file_utils.read_object(current_commit.parent)
+
+class GlobalLogCommand(Command):
+	arg_count = 0
+
+	def run(self, args):
+		self.check_args_count(args)
+		self.require_initialized()
+
+		printed_commits = []
+
+		branch_names = file_utils.get_branch_names()
+		branch_commit_heads = [file_utils.read_object(file_utils.get_head_for_branch(b)) for b in branch_names]
+
+		for commit_head in branch_commit_heads:
+			current_commit = commit_head
+			while current_commit is not Commit.empty:
+				commit_hash = hash_commit(current_commit)
+				if commit_hash in printed_commits:
+					break
+				printed_commits.append(commit_hash)
+				print("===")
+				print(current_commit.clean_str(), end="\n")
+				print("")
+				current_commit = file_utils.read_object(current_commit.parent)
+
 
 class FindCommand(Command):
 	arg_count = 1
@@ -382,7 +408,7 @@ commands_list = [
 					"commit",
 					"rm",
 					"log",
-					# "global-log",
+					"global-log",
 					"find",
 					"status",
 					"checkout",
