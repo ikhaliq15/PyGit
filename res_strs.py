@@ -5,3 +5,6 @@ class ErrorMessages:
 	non_initialized_dir = "Not in an initialized Gitlet directory."
 	already_initialized_dir = "A Gitlet version-control system already exists in the current directory."
 	add_file_not_found = "File does not exist."
+	no_new_changes = "No changes added to the commit."
+	invalid_commit_message = "Please enter a commit message."
+	no_reason_to_remove = "No reason to remove the file."
