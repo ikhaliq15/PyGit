@@ -226,9 +226,24 @@ class LastCommitCheckoutCommand(Command):
 		file.write(file_utils.read_object(current_commit.blobs[filename]))
 		file.close()
 
-		file_utils.unstage_file(filename)
-		file_utils.unmark_for_remove(filename)
+class AnyCommitCheckoutCommand(Command):
+	arg_count = 3
 
+	def run(self, args):
+		self.check_args_count(args)
+		self.require_initialized()
+
+		filename = args[2]
+		commit_id = args[0]
+		current_commit = file_utils.read_object(file_utils.find_commit(commit_id))
+
+		if filename not in current_commit.blobs:
+			print(ErrorMessages.checkout_no_file)
+			sys.exit(0)
+
+		file = open(filename, "w")
+		file.write(file_utils.read_object(current_commit.blobs[filename]))
+		file.close()
 
 commands_list = [
 					"init",

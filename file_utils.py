@@ -1,10 +1,12 @@
 import os
+import sys
 from shutil import copyfile, copy
 import pickle
 
 from commits import *
 from time_utils import *
 from hash_utils import *
+from res_strs import *
 
 def create_directory(directory):
 	if not dir_exists(directory):
@@ -50,6 +52,38 @@ def write_head(commit):
 def read_head_file():
 	head_file = open(get_head_file(), 'rb')
 	return str(pickle.load(head_file))
+
+def find_commit(commit_id):
+	hash_id = commit_id[:2]
+	hash_file = commit_id[2:]
+
+	buckets = []
+	for folder in os.listdir(get_objects_dir()):
+		if os.path.isdir(os.path.join(get_objects_dir(), folder)) and folder.startswith(hash_id):
+			buckets.append(folder)
+
+	if not buckets:
+		print(ErrorMessages.no_commit_found)
+		sys.exit(0)
+	elif len(buckets) > 1:
+		print(ErrorMessages.ambiguous_commit_id)
+		sys.exit(0)
+
+	bucket = buckets[0]
+
+	chosen_files = []
+	for file in os.listdir(os.path.join(get_objects_dir(), bucket)):
+		if not os.path.isdir(file) and file.startswith(hash_file):
+			chosen_files.append(file)
+
+	if not chosen_files:
+		print(ErrorMessages.no_commit_found)
+		sys.exit(0)
+	elif len(chosen_files) > 1:
+		print(ErrorMessages.ambiguous_commit_id)
+		sys.exit(0)
+
+	return bucket + chosen_files[0]
 
 def write_object(filename, content):
 	hash_id = filename[:2]

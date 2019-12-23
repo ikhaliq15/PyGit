@@ -9,4 +9,6 @@ class ErrorMessages:
 	invalid_commit_message = "Please enter a commit message."
 	no_reason_to_remove = "No reason to remove the file."
 	found_no_commits = "Found no commit with that message."
-	checkout_no_file = "File does not exist in that commit"
+	checkout_no_file = "File does not exist in that commit."
+	no_commit_found = "No commit with that id exists."
+	ambiguous_commit_id = "Could not determine commit due to ambiguous commit id given."
