@@ -15,6 +15,7 @@ class Command:
 					"rm": lambda: RemoveCommand,
 					"log": lambda: LogCommand,
 					"find": lambda: FindCommand,
+					"status": lambda: StatusCommand,
 				}
 
 	def get_command(command):
@@ -156,6 +157,37 @@ class FindCommand(Command):
 			print(ErrorMessages.found_no_commits)
 			sys.exit(0)
 
+class StatusCommand(Command):
+	arg_count = 0
+
+	def run(self, args):
+		self.check_args_count(args)
+		self.require_initialized()
+
+		staged = os.listdir(file_utils.get_staging_dir())
+		removed = file_utils.get_marked_for_remove()
+		current_commit = file_utils.read_object(file_utils.read_head_file())
+
+		print("=== Branches ===")
+		print("*master")
+		print("\n=== Staged Files ===")
+		for file in staged:
+			print(file)
+		print("\n=== Removed Files ===")
+		for file in removed:
+			print(file)
+		print("\n=== Modifications Not Staged For Commit ===")
+		for file in current_commit.blobs:
+			if not os.path.exists(file) and not os.path.isdir(file) and file not in removed:
+				print(file, "(deleted)")
+			elif file in staged and hash_file(file) != hash_file(os.path.join(file_utils.get_staging_dir(), file)):
+				print(file, "(modified)")
+			elif file not in staged and hash_file(file) != current_commit.blobs[file]:
+				print(file, "(modified)")
+		print("\n=== Untracked Files ===")
+		for file in os.listdir(os.getcwd()):
+			if not os.path.isdir(file) and file not in staged and file not in current_commit.blobs:
+				print(file)
 
 commands_list = [
 					"init",
@@ -165,7 +197,7 @@ commands_list = [
 					"log",
 					# "global-log",
 					"find",
-					# "status",
+					"status",
 					# "checkout",
 					# "branch",
 					# "rm-branch",
