@@ -199,8 +199,7 @@ class CheckoutSpliiterCommand(Command):
 		self.require_initialized()
 
 		if len(args) == 1:
-			pass
-			#CheckoutBranchCommand().run(args)
+			CheckoutBranchCommand().run(args)
 		elif len(args) == 2 and args[0] == "--":
 			LastCommitCheckoutCommand().run(args)
 		elif len(args) == 3 and args[1] == "--":
@@ -246,6 +245,45 @@ class AnyCommitCheckoutCommand(Command):
 		file.write(file_utils.read_object(current_commit.blobs[filename]))
 		file.close()
 
+class CheckoutBranchCommand(Command):
+	arg_count = 1
+
+	def run(self, args):
+		self.check_args_count(args)
+		self.require_initialized()
+
+		branch_name = args[0]
+
+		if not file_utils.exists_branch(branch_name):
+			print(ErrorMessages.branch_not_found)
+			sys.exit(0)
+
+		old_commit = file_utils.read_object(file_utils.read_head_file())
+
+		current_branch_namne = file_utils.get_current_branch()
+
+		file_utils.write_head(branch_name)
+		current_commit = file_utils.read_object(file_utils.read_head_file())
+
+		if branch_name == current_branch_namne:
+			print(ErrorMessages.already_in_branch)
+			sys.exit(0)
+
+		current_commit = file_utils.read_object(file_utils.read_head_file())
+		for filename in current_commit.blobs:
+			file = open(filename, "w")
+			file.write(file_utils.read_object(current_commit.blobs[filename]))
+			file.close()
+
+		for blob in old_commit.blobs:
+			if blob not in current_commit.blobs:
+				if file_utils.file_exists(blob):
+					os.remove(blob)
+
+		file_utils.clear_stage_dir()
+		file_utils.clear_marked_for_remove()
+
+
 class BranchCommand(Command):
 	arg_count = 1
 
@@ -254,6 +292,13 @@ class BranchCommand(Command):
 		self.require_initialized()
 
 		branch_name = args[0]
+
+		if file_utils.exists_branch(branch_name):
+			print(ErrorMessages.branch_already_exists)
+			sys.exit(0)
+
+		current_commit = file_utils.read_head_file()
+		file_utils.write_branch(branch_name, current_commit)
 
 commands_list = [
 					"init",

@@ -18,6 +18,10 @@ def dir_exists(dir_name):
 def file_exists(file_name):
 	return os.path.exists(file_name)
 
+def exists_branch(branch_name):
+	branch_loc = os.path.join(get_heads_dir(), branch_name)
+	return os.path.exists(branch_loc) and not os.path.isdir(branch_loc)
+
 def get_git_directory():
 	cwd = os.getcwd()
 	git_dir = os.path.join(cwd, ".pygit")
@@ -60,6 +64,12 @@ def add_commit_to_head(commit):
 def write_head(branch):
 	head_file = open(get_head_file(), 'wb')
 	pickle.dump(branch, head_file)
+
+def get_current_branch():
+	head_file = open(get_head_file(), 'rb')
+	branch = pickle.load(head_file)
+	head_file.close()
+	return branch
 
 def read_head_file():
 	head_file = open(get_head_file(), 'rb')

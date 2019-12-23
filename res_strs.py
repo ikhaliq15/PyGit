@@ -12,3 +12,6 @@ class ErrorMessages:
 	checkout_no_file = "File does not exist in that commit."
 	no_commit_found = "No commit with that id exists."
 	ambiguous_commit_id = "Could not determine commit due to ambiguous commit id given."
+	branch_already_exists = "A branch with that name already exists."
+	branch_not_found = "No such branch exists."
+	already_in_branch = "No need to checkout the current branch."
