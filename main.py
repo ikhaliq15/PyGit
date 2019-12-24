@@ -10,7 +10,7 @@ if __name__ == "__main__" :
 		sys.exit(0)
 
 	command = args[0]
-	if command not in commands.commands_list:
+	if command not in commands.Command.command_map:
 		print(ErrorMessages.non_existing_command)
 		sys.exit(0)
 

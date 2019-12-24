@@ -141,6 +141,19 @@ def read_object(filename):
 		object_file.close()
 	return obj_map[filename]
 
+def find_all_commits():
+	commits = []
+	for folder in os.listdir(get_objects_dir()):
+		current_bucket = os.path.join(get_objects_dir(), folder)
+		if os.path.isdir(current_bucket):
+			for file in os.listdir(current_bucket):
+				obj = read_object(folder + file)
+				if type(obj) == Commit:
+					commits.append(obj)
+	return commits
+
+
+
 def get_head_file():
 	return os.path.join(get_git_directory(), "HEAD")
 

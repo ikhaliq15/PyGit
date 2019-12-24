@@ -21,6 +21,7 @@ class Command:
 					"branch": lambda: BranchCommand,
 					"rm-branch": lambda: RemoveBranchCommand,
 					"reset": lambda: ResetCommand,
+					"merge": lambda: MergeCommand,
 				}
 
 	def get_command(command):
@@ -66,6 +67,9 @@ class AddCommand(Command):
 			file_utils.unstage_file(file)
 		else:
 			file_utils.stage_file(file)
+
+		if file in file_utils.get_marked_for_remove():
+			file_utils.unmark_for_remove(file)
 
 class CommitCommand(Command):
 	arg_count = 1
@@ -150,20 +154,12 @@ class GlobalLogCommand(Command):
 
 		printed_commits = []
 
-		branch_names = file_utils.get_branch_names()
-		branch_commit_heads = [file_utils.read_object(file_utils.get_head_for_branch(b)) for b in branch_names]
+		commits = file_utils.find_all_commits()
 
-		for commit_head in branch_commit_heads:
-			current_commit = commit_head
-			while current_commit is not Commit.empty:
-				commit_hash = hash_commit(current_commit)
-				if commit_hash in printed_commits:
-					break
-				printed_commits.append(commit_hash)
-				print("===")
-				print(current_commit.clean_str(), end="\n")
-				print("")
-				current_commit = file_utils.read_object(current_commit.parent)
+		for commit in commits:
+			print("===")
+			print(commit.clean_str(), end="\n")
+			print("")
 
 
 class FindCommand(Command):
@@ -176,22 +172,13 @@ class FindCommand(Command):
 		search_query = args[0]
 
 		searched_commits = []
-
-		branch_names = file_utils.get_branch_names()
-		branch_commit_heads = [file_utils.read_object(file_utils.get_head_for_branch(b)) for b in branch_names]
+		commits = file_utils.find_all_commits()
 
 		found = False
-		for commit_head in branch_commit_heads:
-			current_commit = commit_head
-			while current_commit is not Commit.empty:
-				commit_hash = hash_commit(current_commit)
-				if commit_hash in searched_commits:
-					break
-				searched_commits.append(commit_hash)
-				if current_commit.message == search_query:
-					found = True
-					print(commit_hash)
-				current_commit = file_utils.read_object(current_commit.parent)
+		for commit in commits:
+			if commit.message == search_query:
+				found = True
+				print(hash_commit(commit))
 
 		if not found:
 			print(ErrorMessages.found_no_commits)
@@ -357,9 +344,9 @@ class RemoveBranchCommand(Command):
 		self.require_initialized()
 
 		branch_name = args[0]
-		current_branch_namne = file_utils.get_current_branch()
+		current_branch_name = file_utils.get_current_branch()
 
-		if branch_name == current_branch_namne:
+		if branch_name == current_branch_name:
 			print(ErrorMessages.removing_current_branch)
 			sys.exit(0)
 
@@ -401,19 +388,147 @@ class ResetCommand(Command):
 		file_utils.clear_stage_dir()
 		file_utils.clear_marked_for_remove()
 
+class MergeCommand(Command):
+	arg_count = 1
 
-commands_list = [
-					"init",
-					"add",
-					"commit",
-					"rm",
-					"log",
-					"global-log",
-					"find",
-					"status",
-					"checkout",
-					"branch",
-					"rm-branch",
-					"reset",
-					# "merge",
-				]
+	def run(self, args):
+		self.check_args_count(args)
+		self.require_initialized()
+
+		other_branch_name = args[0]
+		current_branch_name = file_utils.get_current_branch()
+
+		staged, removed = os.listdir(file_utils.get_staging_dir()), file_utils.get_marked_for_remove()
+
+		if len(staged) != 0 or len(removed) != 0:
+			print(ErrorMessages.uncommitted_changes)
+			sys.exit(0)
+
+		if not file_utils.exists_branch(other_branch_name):
+			print(ErrorMessages.branch_not_found_rm)
+			sys.exit(0)
+
+		if current_branch_name == other_branch_name:
+			print(ErrorMessages.merge_with_self)
+			sys.exit(0)
+
+		current_branch_head = file_utils.read_object(file_utils.get_head_for_branch(current_branch_name))
+		given_branch_head = file_utils.read_object(file_utils.get_head_for_branch(other_branch_name))
+
+		ancestors_of_current = []
+		while current_branch_head is not Commit.empty:
+			ancestors_of_current.append(hash_commit(current_branch_head))
+			current_branch_head = file_utils.read_object(current_branch_head.parent)
+
+		ancestors_of_given = []
+		while given_branch_head is not Commit.empty:
+			ancestors_of_given.append(hash_commit(given_branch_head))
+			given_branch_head = file_utils.read_object(given_branch_head.parent)
+
+		split_point = ""
+		for commit in ancestors_of_given:
+			if commit in ancestors_of_current:
+				split_point = commit
+				break
+
+		current_branch_head = file_utils.read_object(file_utils.get_head_for_branch(current_branch_name))
+		given_branch_head = file_utils.read_object(file_utils.get_head_for_branch(other_branch_name))
+		split_point_commit = file_utils.read_object(split_point)
+
+		untracked_files = []
+		for untracked_file in os.listdir(os.getcwd()):
+			if not os.path.isdir(untracked_file) and untracked_file not in current_branch_head.blobs:
+				untracked_files.append(untracked_file)
+
+		for file in split_point_commit.blobs:
+			if file not in untracked_files:
+				continue
+			current_ver_modified = file not in current_branch_head.blobs or split_point_commit.blobs[file] != current_branch_head.blobs[file]
+			given_ver_modified = file not in given_branch_head.blobs or split_point_commit.blobs[file] != given_branch_head.blobs[file]
+
+			if given_ver_modified and not current_ver_modified:
+				if file in given_branch_head.blobs:
+					print(ErrorMessages.checkout_warning)
+					sys.exit(0)
+				else:
+					print(ErrorMessages.checkout_warning)
+					sys.exit(0)
+			elif given_ver_modified and current_ver_modified:
+				if (file not in current_branch_head.blobs and file not in given_branch_head.blobs) or (given_branch_head.blobs[file] == current_branch_head.blobs[file]):
+					continue
+				else:
+					print(ErrorMessages.checkout_warning)
+					sys.exit(0)
+
+		for file in given_branch_head.blobs:
+			if file not in untracked_files:
+				continue
+			if file not in split_point_commit.blobs and file not in current_branch_head.blobs:
+				print(ErrorMessages.checkout_warning)
+				sys.exit(0)
+
+		if split_point == hash_commit(given_branch_head):
+			print("Given branch is an ancestor of the current branch.")
+			sys.exit(0)
+
+		if split_point == hash_commit(current_branch_head):
+			file_utils.write_head(other_branch_name)
+			print("Current branch fast-forwarded.")
+			sys.exit(0)
+
+		was_merge_conflict = False
+
+		for file in split_point_commit.blobs:
+			current_ver_modified = file not in current_branch_head.blobs or split_point_commit.blobs[file] != current_branch_head.blobs[file]
+			given_ver_modified = file not in given_branch_head.blobs or split_point_commit.blobs[file] != given_branch_head.blobs[file]
+
+			if given_ver_modified and not current_ver_modified:
+				if file in given_branch_head.blobs:
+					f = open(file, "w")
+					f.write(file_utils.read_object(given_branch_head.blobs[file]))
+					f.close()
+					file_utils.stage_file(file)
+					continue
+				else:
+					os.remove(file)
+					file_utils.mark_for_remove(file)
+			elif not given_ver_modified and current_ver_modified:
+				continue
+			elif given_ver_modified and current_ver_modified:
+				if file not in current_branch_head.blobs and file in given_branch_head.blobs:
+					current_file_content = "" if file not in current_branch_head.blobs else file_utils.read_object(current_branch_head.blobs[file])
+					given_file_content = "" if file not in given_branch_head.blobs else file_utils.read_object(given_branch_head.blobs[file])
+					f = open(file, "w")
+					f.write("<<<<<<< HEAD\n" + current_file_content + "=======\n" + given_file_content + ">>>>>>>\n")
+					f.close()
+					file_utils.stage_file(file)
+					was_merge_conflict = True
+				elif file not in given_branch_head.blobs and file in current_branch_head.blobs:
+					current_file_content = "" if file not in current_branch_head.blobs else file_utils.read_object(current_branch_head.blobs[file])
+					given_file_content = "" if file not in given_branch_head.blobs else file_utils.read_object(given_branch_head.blobs[file])
+					f = open(file, "w")
+					f.write("<<<<<<< HEAD\n" + current_file_content + "=======\n" + given_file_content + ">>>>>>>\n")
+					f.close()
+					file_utils.stage_file(file)
+					was_merge_conflict = True
+				elif (file in current_branch_head.blobs != file in given_branch_head.blobs) or (given_branch_head.blobs[file] != current_branch_head.blobs[file]):
+					current_file_content = "" if file not in current_branch_head.blobs else file_utils.read_object(current_branch_head.blobs[file])
+					given_file_content = "" if file not in given_branch_head.blobs else file_utils.read_object(given_branch_head.blobs[file])
+					f = open(file, "w")
+					f.write("<<<<<<< HEAD\n" + current_file_content + "=======\n" + given_file_content + ">>>>>>>\n")
+					f.close()
+					file_utils.stage_file(file)
+					was_merge_conflict = True
+
+		for file in given_branch_head.blobs:
+			if file not in split_point_commit.blobs and file not in current_branch_head.blobs:
+				f = open(file, "w")
+				f.write(file_utils.read_object(given_branch_head.blobs[file]))
+				f.close()
+				file_utils.stage_file(file)
+				continue
+
+		CommitCommand().run(["Merged " + other_branch_name + " into " + current_branch_name + "."])
+
+		if was_merge_conflict:
+			print("Encountered a merge conflict.")

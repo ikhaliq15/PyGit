@@ -18,3 +18,5 @@ class ErrorMessages:
 	checkout_warning = "There is an untracked file in the way; delete it or add it first."
 	removing_current_branch = "Cannot remove the current branch."
 	branch_not_found_rm = "A branch with that name does not exist."
+	uncommitted_changes = "You have uncommitted changes."
+	merge_with_self = "Cannot merge a branch with itself."
